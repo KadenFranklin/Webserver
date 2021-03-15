@@ -74,48 +74,48 @@ fn handle(mut stream: TcpStream, num: Arc<Mutex<i32>>) {
     let file: String =  message.split("GET ").collect();
     let filename: String = file.split(" HTTP").take(1).collect();
     let path = Path::new(filename.trim());
+    let splitname : String = filename.split("/").collect();
 
-    if path.parent().unwrap() == Path::new("/") && path.is_file() {
-        let mut that = num.lock().unwrap();
-        *that += 1;
-        let mut file_contents = String::new();
-        let new_filename: String = filename.split("/").collect();
-        let mut file = File::open(format!("{}", new_filename)).unwrap();
-        loop {
-            let mut new_buffer = [0; 500];
-            let new_bytes_read = file.read(&mut new_buffer).unwrap();
-            let new_buff = from_utf8(&new_buffer[0..new_bytes_read]).unwrap();
-            file_contents.push_str(new_buff);
-            if new_bytes_read == 0 { break }
-        }
-        let reply_message = format!("<html>
+    loop {
+        if path.parent().unwrap() == Path::new("/") && (Path::new(splitname.trim()).exists()) {
+            let mut that = num.lock().unwrap();
+            *that += 1;
+            let mut file_contents = String::new();
+            let mut file = File::open(format!("{}", splitname)).unwrap();
+            loop {
+                let mut new_buffer = [0; 500];
+                let new_bytes_read = file.read(&mut new_buffer).unwrap();
+                let new_buff = from_utf8(&new_buffer[0..new_bytes_read]).unwrap();
+                file_contents.push_str(new_buff);
+                if new_bytes_read == 0 { break }
+            }
+            let reply_message = format!("<html>
 <body>
 <h1>Message received</h1>
 Requested file: {} <br>
 File contents: {} <br>
 </body>
 </html>", filename, file_contents);
-        let reply = format!("HTTP/1.1 200 OK
+            let reply = format!("HTTP/1.1 200 OK
 Content-Type: text/html; charset=UTF-8
 Content-Length: {}
 
 {}
 ",reply_message.len(), reply_message);
-        stream.write(reply.as_bytes()).unwrap();
-    }
+            stream.write(reply.as_bytes()).unwrap();
+            break
+        }
 
-    if !(path.parent().unwrap() == Path::new("/")){
-        let reply = format!("HTTP/1.1 403 Forbidden");
-        stream.write(reply.as_bytes()).unwrap();
-    }
+        if !(path.parent().unwrap() == Path::new("/")){
+            let reply = format!("HTTP/1.1 403 Forbidden");
+            stream.write(reply.as_bytes()).unwrap();
+            break
+        }
 
-    if !path.is_file() {
-        let reply = format!("HTTP/1.1 404 Not Found");
-        stream.write(reply.as_bytes()).unwrap();
-    }
-
-    else {
-        let reply = format!("HTTP/1.1 404 Not Found");
-        stream.write(reply.as_bytes()).unwrap();
+        if !(Path::new(splitname.trim()).exists()) || path.is_dir() {
+            let reply = format!("HTTP/1.1 404 Not Found");
+            stream.write(reply.as_bytes()).unwrap();
+            break
+        }
     }
 }
